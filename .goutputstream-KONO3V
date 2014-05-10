@@ -1,0 +1,102 @@
+BITS 16
+
+%include "macrosmodoreal.mac"
+
+%define KORG 0x1200
+
+global start
+extern tsss
+extern gdt
+extern GDT_DESC
+extern IDT_DESC
+extern inicializar_idt
+
+extern resetear_pic
+extern habilitar_pic
+
+;Aca arranca todo, en el primer byte.
+start:
+		cli ;no me interrumpan por ahora
+		;xchg bx, bx
+		jmp bienvenida
+
+;aca ponemos todos los mensajes
+iniciando: db 'Iniciando el kernel'
+iniciando_len equ $ - iniciando
+
+numeros: db '0123456789'
+numeros_len equ $ - numeros
+
+espacio: db ' '
+espacio_len equ $ - espacio
+
+
+bienvenida:
+
+		IMPRIMIR_MODO_REAL iniciando, iniciando_len, 0x07, 0, 0
+		
+		;Habilitar A20
+		call habilitar_A20
+		;Dehsabilitar las interrupciones
+		cli
+		;Pasar a modo protegido
+		lgdt [GDT_DESC]
+		xchg bx, bx
+		
+		
+		mov eax, cr0
+		or eax, 1
+		mov cr0, eax
+		xchg bx, bx
+		jmp 0x30:modo_protegido				;saltamos a modo protegido
+
+
+
+
+BITS 32
+modo_protegido:
+		xor eax, eax
+		mov ax, 0x10			;cargo el selector de video en ax
+		mov fs, ax				; fs=selector de video
+		mov ax, 0x20			;cargo el selector de datos
+		mov ds, ax				;ds=selector de datos
+		mov es, ax				;ds=selector de datos
+		mov gs, ax				;ds=selector de datos
+		mov ss, ax				;ss=selector de datos
+		
+		xchg bx, bx
+		
+		mov ecx, 70
+		primer_linea:
+			IMPRIMIR_TEXTO espacio, espacio_len, 0xff, 0, 0
+			loop primer_linea
+
+		IMPRIMIR_TEXTO numeros, numeros_len, 0xf8, 0, 0
+		
+		mov ecx, 23
+		nueva_linea:
+			mov ebx, 80
+			nuevo_pixel: 
+				IMPRIMIR_TEXTO espacio, espacio_len, 0xff, 0, 0
+				sub ebx, 1
+				jne nuevo_pixel
+			loop nueva_linea
+		
+		loop primer_linea
+			
+		;Inicializar la IDT
+
+		;Habilitar paginacion
+
+		;Inicializar el scheduler de tareas
+
+		;Construir tarea idle
+		
+		;Construir primer worm
+
+		;Saltar a la primer tarea
+
+		jmp $
+
+%include "a20.asm"
+
